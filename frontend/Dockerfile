@@ -6,6 +6,8 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+# Ensure public directory exists (even if empty)
+RUN mkdir -p public
 RUN npm run build
 
 # Production stage
