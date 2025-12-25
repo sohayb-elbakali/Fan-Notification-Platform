@@ -8,6 +8,7 @@ const teamsRoutes = require('./routes/teams');
 const matchesRoutes = require('./routes/matches');
 const alertsRoutes = require('./routes/alerts');
 const eventsRoutes = require('./routes/events');
+const recipientsRoutes = require('./routes/recipients');
 
 // Import database connection
 const { connectDB } = require('./config/database');
@@ -27,8 +28,8 @@ app.use((req, res, next) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     service: 'CAN 2025 Fan Notification API',
     timestamp: new Date().toISOString()
   });
@@ -40,6 +41,7 @@ app.use('/teams', teamsRoutes);
 app.use('/matches', matchesRoutes);
 app.use('/alerts', alertsRoutes);
 app.use('/events', eventsRoutes);
+app.use('/recipients', recipientsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

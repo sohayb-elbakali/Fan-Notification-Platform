@@ -1,0 +1,165 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "CAN 2025 Fan Notification - AWS EventBridge and Lambda Stack",
+    "Parameters": {
+        "BackendApiUrl": {
+            "Type": "String",
+            "Description": "URL of the backend API (Cloud Run)",
+            "Default": "https://can2025-backend.run.app"
+        },
+        "SesFromEmail": {
+            "Type": "String",
+            "Description": "Verified SES sender email",
+            "Default": "noreply@can2025.com"
+        }
+    },
+    "Resources": {
+        "EventBus": {
+            "Type": "AWS::Events::EventBus",
+            "Properties": {
+                "Name": "can2025-events"
+            }
+        },
+        "LambdaExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": "can2025-lambda-role",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": "can2025-lambda-policy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Resource": "arn:aws:logs:*:*:*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "ses:SendEmail",
+                                        "ses:SendRawEmail"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "NotificationLambda": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": "can2025-notification-handler",
+                "Runtime": "python3.11",
+                "Handler": "handler.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Timeout": 30,
+                "MemorySize": 256,
+                "Environment": {
+                    "Variables": {
+                        "BACKEND_API_URL": {
+                            "Ref": "BackendApiUrl"
+                        },
+                        "SES_FROM_EMAIL": {
+                            "Ref": "SesFromEmail"
+                        }
+                    }
+                },
+                "Code": {
+                    "ZipFile": "# Placeholder - deploy actual code via CI/CD\nimport json\ndef lambda_handler(event, context):\n    print(json.dumps(event))\n    return {'statusCode': 200}"
+                }
+            }
+        },
+        "LambdaPermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": {
+                    "Ref": "NotificationLambda"
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "EventRule",
+                        "Arn"
+                    ]
+                }
+            }
+        },
+        "EventRule": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Name": "can2025-event-rule",
+                "EventBusName": {
+                    "Ref": "EventBus"
+                },
+                "EventPattern": {
+                    "source": [
+                        "can2025.backend"
+                    ],
+                    "detail-type": [
+                        "match.scheduled",
+                        "goal.scored",
+                        "alert.published"
+                    ]
+                },
+                "State": "ENABLED",
+                "Targets": [
+                    {
+                        "Id": "notification-lambda",
+                        "Arn": {
+                            "Fn::GetAtt": [
+                                "NotificationLambda",
+                                "Arn"
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "EventBusArn": {
+            "Description": "ARN of the EventBridge bus",
+            "Value": {
+                "Fn::GetAtt": [
+                    "EventBus",
+                    "Arn"
+                ]
+            }
+        },
+        "LambdaArn": {
+            "Description": "ARN of the Lambda function",
+            "Value": {
+                "Fn::GetAtt": [
+                    "NotificationLambda",
+                    "Arn"
+                ]
+            }
+        }
+    }
+}

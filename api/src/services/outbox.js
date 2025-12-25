@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
-const { query, transaction, sql } = require('../config/database');
+const { query, sql } = require('../config/database');
 
 /**
  * Event types supported by the system
@@ -11,9 +11,6 @@ const EventTypes = {
     ALERT_PUBLISHED: 'alert.published'
 };
 
-/**
- * Event statuses
- */
 const EventStatus = {
     NEW: 'NEW',
     SENT: 'SENT',
@@ -53,45 +50,50 @@ async function createEvent(type, payload, trans = null) {
 }
 
 /**
- * Trigger webhook to AWS Lambda
+ * Publish event to AWS EventBridge
  */
-async function triggerWebhook(eventId, eventType) {
-    const lambdaUrl = process.env.AWS_LAMBDA_URL;
-    const webhookToken = process.env.WEBHOOK_TOKEN;
+async function publishToEventBridge(eventId, eventType, payload) {
+    const eventBridgeEndpoint = process.env.AWS_EVENTBRIDGE_ENDPOINT;
+    const awsAccessKey = process.env.AWS_ACCESS_KEY_ID;
+    const awsSecretKey = process.env.AWS_SECRET_ACCESS_KEY;
+    const eventBusBus = process.env.AWS_EVENTBRIDGE_BUS || 'can2025-events';
 
-    if (!lambdaUrl) {
-        console.log('⚠️  AWS_LAMBDA_URL not configured, skipping webhook');
-        console.log(`📤 Would send webhook for event: ${eventId} (${eventType})`);
+    if (!eventBridgeEndpoint) {
+        console.log('⚠️  AWS_EVENTBRIDGE_ENDPOINT not configured');
+        console.log(`📤 Event [${eventType}]: ${eventId}`);
+        console.log(`📦 Payload:`, JSON.stringify(payload.data, null, 2));
         return { success: true, mock: true };
     }
 
     try {
+        // Format event for EventBridge
+        const eventBridgeEvent = {
+            Source: 'can2025.backend',
+            DetailType: eventType,
+            Detail: JSON.stringify(payload.data),
+            EventBusName: eventBusBus
+        };
+
+        // Note: In production, use AWS SDK for proper signing
+        // This is a simplified version for demonstration
         const response = await axios.post(
-            lambdaUrl,
-            {
-                eventId: eventId,
-                type: eventType
-            },
+            eventBridgeEndpoint,
+            { Entries: [eventBridgeEvent] },
             {
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-WEBHOOK-TOKEN': webhookToken
+                    'X-Api-Key': process.env.AWS_API_KEY || ''
                 },
-                timeout: 10000 // 10 second timeout
+                timeout: 10000
             }
         );
 
-        // Update event status to SENT
         await updateEventStatus(eventId, EventStatus.SENT);
-
-        console.log(`✅ Webhook sent for event: ${eventId}`);
+        console.log(`✅ Event published to EventBridge: ${eventId}`);
         return { success: true, response: response.data };
     } catch (error) {
-        console.error(`❌ Webhook failed for event ${eventId}:`, error.message);
-
-        // Update event status to FAILED
+        console.error(`❌ EventBridge publish failed: ${error.message}`);
         await updateEventStatus(eventId, EventStatus.FAILED);
-
         return { success: false, error: error.message };
     }
 }
@@ -106,7 +108,6 @@ async function updateEventStatus(eventId, status) {
         processed_at = CASE WHEN @status = 'PROCESSED' THEN GETUTCDATE() ELSE processed_at END
     WHERE id = @id
   `;
-
     await query(sqlQuery, { id: eventId, status: status });
 }
 
@@ -116,15 +117,11 @@ async function updateEventStatus(eventId, status) {
 async function getEvent(eventId) {
     const sqlQuery = `
     SELECT id, type, payload_json, status, created_at, processed_at
-    FROM outbox_events
-    WHERE id = @id
+    FROM outbox_events WHERE id = @id
   `;
-
     const result = await query(sqlQuery, { id: eventId });
 
-    if (result.recordset.length === 0) {
-        return null;
-    }
+    if (result.recordset.length === 0) return null;
 
     const event = result.recordset[0];
     return {
@@ -138,7 +135,7 @@ async function getEvent(eventId) {
 }
 
 /**
- * Acknowledge event (mark as processed)
+ * Acknowledge event
  */
 async function acknowledgeEvent(eventId) {
     await updateEventStatus(eventId, EventStatus.PROCESSED);
@@ -146,7 +143,7 @@ async function acknowledgeEvent(eventId) {
 }
 
 /**
- * Get pending events (for retry mechanism)
+ * Get pending events
  */
 async function getPendingEvents() {
     const sqlQuery = `
@@ -156,7 +153,6 @@ async function getPendingEvents() {
     AND created_at > DATEADD(hour, -24, GETUTCDATE())
     ORDER BY created_at ASC
   `;
-
     const result = await query(sqlQuery);
     return result.recordset.map(event => ({
         id: event.id,
@@ -168,15 +164,15 @@ async function getPendingEvents() {
 }
 
 /**
- * Publish an event: create in outbox and trigger webhook
+ * Publish an event: create in outbox and publish to EventBridge
  */
 async function publishEvent(type, payload) {
     const eventId = await createEvent(type, payload);
 
-    // Trigger webhook asynchronously (don't block the response)
+    // Publish to EventBridge asynchronously
     setImmediate(() => {
-        triggerWebhook(eventId, type).catch(err => {
-            console.error('Async webhook error:', err.message);
+        publishToEventBridge(eventId, type, payload).catch(err => {
+            console.error('Async EventBridge error:', err.message);
         });
     });
 
@@ -187,7 +183,7 @@ module.exports = {
     EventTypes,
     EventStatus,
     createEvent,
-    triggerWebhook,
+    publishToEventBridge,
     updateEventStatus,
     getEvent,
     acknowledgeEvent,
