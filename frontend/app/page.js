@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Trophy, Users, Calendar, AlertTriangle, Bell, Zap } from 'lucide-react'
+import { Trophy, Users, Calendar, AlertTriangle, Bell, Zap, Flag, MapPin, Star } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -59,27 +59,53 @@ export default function HomePage() {
 
             <main className="container">
                 {/* Hero Section */}
-                <section style={{ textAlign: 'center', padding: '4rem 0' }}>
-                    <h1 style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '1rem' }}>
-                        <span style={{ background: 'linear-gradient(135deg, #059669, #0891b2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                <section style={{ textAlign: 'center', padding: '5rem 0 4rem' }}>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <span style={{
+                            display: 'inline-block',
+                            padding: '0.5rem 1.25rem',
+                            background: 'linear-gradient(135deg, rgba(196, 30, 58, 0.15), rgba(29, 111, 66, 0.15))',
+                            borderRadius: '9999px',
+                            border: '1px solid rgba(212, 175, 55, 0.3)',
+                            color: '#D4AF37',
+                            fontSize: '0.875rem',
+                            fontWeight: '600',
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase'
+                        }}>
+                            🏆 Maroc 2025
+                        </span>
+                    </div>
+                    <h1 className="hero-title">
+                        <span className="hero-gradient">
                             Fan Notification Platform
                         </span>
                     </h1>
-                    <p style={{ fontSize: '1.25rem', color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto 2rem' }}>
-                        Suivez la CAN 2025 en temps réel. Recevez des notifications pour vos équipes favorites.
+                    <p style={{
+                        fontSize: '1.25rem',
+                        color: 'var(--text-muted)',
+                        maxWidth: '650px',
+                        margin: '0 auto 2.5rem',
+                        lineHeight: '1.7'
+                    }}>
+                        Suivez la Coupe d'Afrique des Nations 2025 en temps réel.
+                        Recevez des notifications instantanées pour vos équipes favorites.
                     </p>
-                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                         <Link href="/fans" className="btn btn-primary">
                             <Users size={20} /> S'inscrire
                         </Link>
-                        <Link href="/matches" className="btn btn-secondary">
+                        <Link href="/matches" className="btn btn-success">
                             <Calendar size={20} /> Voir les matchs
                         </Link>
                     </div>
                 </section>
 
+                {/* Decorative Divider */}
+                <div className="divider"></div>
+
                 {/* Stats */}
-                <section className="stats-grid" style={{ marginBottom: '3rem' }}>
+                <section className="stats-grid" style={{ marginBottom: '4rem' }}>
                     <div className="stat-card">
                         <div className="stat-value">{stats.teams}</div>
                         <div className="stat-label">Équipes</div>
@@ -93,38 +119,44 @@ export default function HomePage() {
                         <div className="stat-label">Matchs programmés</div>
                     </div>
                     <div className="stat-card">
-                        <div className="stat-value">
-                            <Zap size={40} style={{ color: '#f59e0b' }} />
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: '3rem'
+                        }}>
+                            <Zap size={44} style={{ color: '#D4AF37' }} />
                         </div>
                         <div className="stat-label">Notifications temps réel</div>
                     </div>
                 </section>
 
                 {/* Features */}
-                <section style={{ marginBottom: '3rem' }}>
-                    <h2 className="page-title" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <section style={{ marginBottom: '4rem' }}>
+                    <h2 className="section-title">
                         Fonctionnalités
                     </h2>
+                    <div style={{ height: '1rem' }}></div>
                     <div className="grid grid-3">
-                        <div className="card">
-                            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📅</div>
-                            <h3 style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Calendrier des matchs</h3>
-                            <p style={{ color: 'var(--text-muted)' }}>
-                                Recevez une notification avec la date, l'heure et le stade pour chaque match.
+                        <div className="feature-card">
+                            <span className="feature-icon">📅</span>
+                            <h3 className="feature-title">Calendrier des matchs</h3>
+                            <p className="feature-desc">
+                                Recevez une notification avec la date, l'heure et le stade pour chaque match de vos équipes favorites.
                             </p>
                         </div>
-                        <div className="card">
-                            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚽</div>
-                            <h3 style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Buts en direct</h3>
-                            <p style={{ color: 'var(--text-muted)' }}>
-                                Soyez alerté instantanément lorsqu'un but est marqué avec le score mis à jour.
+                        <div className="feature-card">
+                            <span className="feature-icon">⚽</span>
+                            <h3 className="feature-title">Buts en direct</h3>
+                            <p className="feature-desc">
+                                Soyez alerté instantanément lorsqu'un but est marqué avec le score mis à jour en temps réel.
                             </p>
                         </div>
-                        <div className="card">
-                            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
-                            <h3 style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Alertes</h3>
-                            <p style={{ color: 'var(--text-muted)' }}>
-                                Recevez des alertes météo, sécurité ou trafic pour planifier votre déplacement.
+                        <div className="feature-card">
+                            <span className="feature-icon">⚠️</span>
+                            <h3 className="feature-title">Alertes importantes</h3>
+                            <p className="feature-desc">
+                                Recevez des alertes météo, sécurité ou trafic pour planifier votre déplacement au stade.
                             </p>
                         </div>
                     </div>
@@ -132,10 +164,11 @@ export default function HomePage() {
 
                 {/* Recent Matches */}
                 {recentMatches.length > 0 && (
-                    <section style={{ marginBottom: '3rem' }}>
-                        <h2 className="page-title" style={{ marginBottom: '1.5rem' }}>
+                    <section style={{ marginBottom: '4rem' }}>
+                        <h2 className="section-title">
                             Matchs récents
                         </h2>
+                        <div style={{ height: '1rem' }}></div>
                         <div className="grid grid-3">
                             {recentMatches.map(match => (
                                 <div key={match.id} className="match-card">
@@ -146,11 +179,11 @@ export default function HomePage() {
                                     </div>
                                     <div className="match-info">
                                         <span>🏟️ {match.stadium}</span>
-                                        <span>📍 {match.city}</span>
+                                        <span><MapPin size={14} /> {match.city}</span>
                                     </div>
-                                    <div style={{ marginTop: '0.5rem' }}>
+                                    <div style={{ marginTop: '1rem' }}>
                                         <span className={`badge ${match.status === 'LIVE' ? 'badge-danger' : 'badge-info'}`}>
-                                            {match.status}
+                                            {match.status === 'LIVE' ? '🔴 EN DIRECT' : match.status}
                                         </span>
                                     </div>
                                 </div>
@@ -160,31 +193,48 @@ export default function HomePage() {
                 )}
 
                 {/* Architecture Info */}
-                <section className="card" style={{ marginBottom: '3rem', textAlign: 'center' }}>
-                    <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Architecture Multi-Cloud</h3>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '3rem', flexWrap: 'wrap' }}>
-                        <div>
-                            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>☁️</div>
-                            <strong>GCP</strong>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Cloud Run + CI/CD</p>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔷</div>
-                            <strong>Azure</strong>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>SQL Database</p>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔶</div>
-                            <strong>AWS</strong>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Events + Email</p>
+                <section style={{ marginBottom: '3rem' }}>
+                    <h2 className="section-title">
+                        Architecture Multi-Cloud
+                    </h2>
+                    <div style={{ height: '1rem' }}></div>
+                    <div className="arch-card">
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: '4rem',
+                            flexWrap: 'wrap',
+                            padding: '1rem 0'
+                        }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div className="arch-icon">☁️</div>
+                                <div className="arch-name">GCP</div>
+                                <div className="arch-desc">Cloud Run + CI/CD</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div className="arch-icon">🔷</div>
+                                <div className="arch-name">Azure</div>
+                                <div className="arch-desc">SQL Database</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div className="arch-icon">🔶</div>
+                                <div className="arch-name">AWS</div>
+                                <div className="arch-desc">Events + Email</div>
+                            </div>
                         </div>
                     </div>
                 </section>
             </main>
 
             {/* Footer */}
-            <footer style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', borderTop: '1px solid var(--surface-light)' }}>
-                <p>CAN 2025 Fan Notification Platform - Projet Multi-Cloud</p>
+            <footer className="footer">
+                <p>
+                    <span style={{ color: '#C41E3A' }}>●</span>
+                    {' '}CAN 2025 Fan Notification Platform{' '}
+                    <span style={{ color: '#D4AF37' }}>●</span>
+                    {' '}Projet Multi-Cloud{' '}
+                    <span style={{ color: '#1D6F42' }}>●</span>
+                </p>
             </footer>
         </div>
     )

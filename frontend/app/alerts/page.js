@@ -1,21 +1,21 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, AlertTriangle, Cloud, Shield, Car } from 'lucide-react'
+import { Plus, AlertTriangle, Cloud, Shield, Car, X, Bell, Info } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 const CATEGORIES = [
-    { value: 'WEATHER', label: 'Météo', icon: Cloud, color: '#0891b2' },
-    { value: 'SECURITY', label: 'Sécurité', icon: Shield, color: '#ef4444' },
-    { value: 'TRAFFIC', label: 'Trafic', icon: Car, color: '#f59e0b' },
-    { value: 'GENERAL', label: 'Général', icon: AlertTriangle, color: '#8b5cf6' }
+    { value: 'WEATHER', label: 'Conditions Météo', icon: Cloud, color: '#0891b2' },
+    { value: 'SECURITY', label: 'Sécurité & Accès', icon: Shield, color: '#ef4444' },
+    { value: 'TRAFFIC', label: 'Trafic & Transport', icon: Car, color: '#f59e0b' },
+    { value: 'GENERAL', label: 'Information Générale', icon: Info, color: '#8b5cf6' }
 ]
 
 const SEVERITIES = [
     { value: 'INFO', label: 'Information', color: '#0891b2' },
-    { value: 'WARN', label: 'Avertissement', color: '#f59e0b' },
-    { value: 'CRITICAL', label: 'Critique', color: '#ef4444' }
+    { value: 'WARN', label: 'Attention', color: '#f59e0b' },
+    { value: 'CRITICAL', label: 'Urgent', color: '#ef4444' }
 ]
 
 export default function AlertsPage() {
@@ -67,12 +67,23 @@ export default function AlertsPage() {
         const found = CATEGORIES.find(c => c.value === cat)
         if (!found) return <AlertTriangle size={20} />
         const Icon = found.icon
-        return <Icon size={20} style={{ color: found.color }} />
+        // Use gold/white for icons in the dark theme context
+        return <Icon size={20} style={{ color: 'var(--text-light)' }} />
     }
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '-'
-        return new Date(dateStr).toLocaleString('fr-FR')
+        return new Date(dateStr).toLocaleString('fr-FR', {
+            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+        })
+    }
+
+    const getSeverityBadge = (severity) => {
+        switch (severity) {
+            case 'CRITICAL': return <span className="badge badge-danger">Urgent</span>
+            case 'WARN': return <span className="badge badge-warning">Attention</span>
+            default: return <span className="badge badge-info">Info</span>
+        }
     }
 
     return (
@@ -94,10 +105,10 @@ export default function AlertsPage() {
 
             <main className="container">
                 <div className="page-header">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                         <div>
-                            <h1 className="page-title">Alertes</h1>
-                            <p className="page-subtitle">Publier des alertes météo, sécurité ou trafic</p>
+                            <h1 className="page-title">Alertes & Notifications</h1>
+                            <p className="page-subtitle">Informations en temps réel pour les supporters</p>
                         </div>
                         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
                             <Plus size={20} /> Nouvelle alerte
@@ -108,16 +119,42 @@ export default function AlertsPage() {
                 {message && (
                     <div className={`alert alert-${message.type}`}>
                         {message.text}
-                        <button onClick={() => setMessage(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
+                        <button
+                            onClick={() => setMessage(null)}
+                            style={{
+                                marginLeft: 'auto',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'inherit',
+                                padding: '0.25rem',
+                                display: 'flex'
+                            }}
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
                 )}
 
                 {loading ? (
-                    <div className="empty-state">Chargement...</div>
+                    <div className="empty-state">
+                        <div style={{
+                            width: '40px',
+                            height: '40px',
+                            border: '3px solid var(--surface-light)',
+                            borderTopColor: 'var(--gold)',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                            margin: '0 auto 1rem'
+                        }}></div>
+                        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                        Chargement des alertes...
+                    </div>
                 ) : alerts.length === 0 ? (
                     <div className="empty-state">
-                        <div className="empty-state-icon">⚠️</div>
-                        <p>Aucune alerte publiée</p>
+                        <div className="empty-state-icon">🔕</div>
+                        <p style={{ fontSize: '1.1rem' }}>Aucune alerte active</p>
+                        <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Les notifications importantes apparaîtront ici.</p>
                     </div>
                 ) : (
                     <div className="grid grid-2">
@@ -125,17 +162,51 @@ export default function AlertsPage() {
                             <div key={alert.id} className="card">
                                 <div className="card-header">
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        {getCategoryIcon(alert.category)}
-                                        <span className="card-title">{alert.category}</span>
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '50%',
+                                            background: 'rgba(255, 255, 255, 0.05)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            {getCategoryIcon(alert.category)}
+                                        </div>
+                                        <div>
+                                            <div className="card-title" style={{ fontSize: '1.1rem' }}>
+                                                {CATEGORIES.find(c => c.value === alert.category)?.label || alert.category}
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                                {formatDate(alert.createdAt)}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <span className={`badge ${alert.severity === 'CRITICAL' ? 'badge-danger' : alert.severity === 'WARN' ? 'badge-warning' : 'badge-info'}`}>
-                                        {alert.severity}
-                                    </span>
+                                    {getSeverityBadge(alert.severity)}
                                 </div>
-                                <p style={{ marginBottom: '0.75rem' }}>{alert.message}</p>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                                    <span>📍 {alert.scopeType}: {alert.scopeId || 'Tous'}</span>
-                                    <span>{formatDate(alert.createdAt)}</span>
+                                <p style={{
+                                    marginBottom: '1.25rem',
+                                    fontSize: '0.95rem',
+                                    lineHeight: '1.6',
+                                    color: 'var(--text-light)'
+                                }}>
+                                    {alert.message}
+                                </p>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    paddingTop: '1rem',
+                                    borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                                    color: 'var(--text-muted)',
+                                    fontSize: '0.85rem'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        <TargetIcon type={alert.scopeType} />
+                                        <span style={{ fontWeight: '500', color: 'var(--gold)' }}>
+                                            {formatScope(alert.scopeType, alert.scopeId)}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -149,49 +220,87 @@ export default function AlertsPage() {
                     <div className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2 className="modal-title">Nouvelle alerte</h2>
-                            <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', fontSize: '1.5rem' }}>✕</button>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    padding: '0.25rem',
+                                    display: 'flex',
+                                    transition: 'color 0.2s'
+                                }}
+                            >
+                                <X size={24} />
+                            </button>
                         </div>
                         <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label className="form-label">Type de portée</label>
-                                <select className="form-select" value={formData.scopeType} onChange={e => setFormData({ ...formData, scopeType: e.target.value })}>
-                                    <option value="CITY">Ville</option>
-                                    <option value="STADIUM">Stade</option>
-                                    <option value="MATCH">Match</option>
-                                    <option value="ALL">Tous</option>
-                                </select>
-                            </div>
-                            {formData.scopeType !== 'ALL' && (
-                                <div className="form-group">
-                                    <label className="form-label">Identifiant de portée</label>
-                                    <input type="text" className="form-input" value={formData.scopeId} onChange={e => setFormData({ ...formData, scopeId: e.target.value })} placeholder="Ex: Casablanca" required />
+                            <div className="grid grid-2" style={{ gap: '1rem', marginBottom: '1.25rem' }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label">Catégorie</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.category}
+                                        onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                    >
+                                        {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                    </select>
                                 </div>
-                            )}
-                            <div className="form-group">
-                                <label className="form-label">Catégorie</label>
-                                <select className="form-select" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                                </select>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label">Niveau d'urgence</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.severity}
+                                        onChange={e => setFormData({ ...formData, severity: e.target.value })}
+                                    >
+                                        {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                    </select>
+                                </div>
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Sévérité</label>
-                                <select className="form-select" value={formData.severity} onChange={e => setFormData({ ...formData, severity: e.target.value })}>
-                                    {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                                </select>
+
+                            <div className="grid grid-2" style={{ gap: '1rem', marginBottom: '1.25rem' }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label">Cible</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.scopeType}
+                                        onChange={e => setFormData({ ...formData, scopeType: e.target.value })}
+                                    >
+                                        <option value="CITY">Ville Spécifique</option>
+                                        <option value="STADIUM">Stade</option>
+                                        <option value="MATCH">Match</option>
+                                        <option value="ALL">Tout le monde</option>
+                                    </select>
+                                </div>
+                                {formData.scopeType !== 'ALL' && (
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label className="form-label">Identifiant (Nom)</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.scopeId}
+                                            onChange={e => setFormData({ ...formData, scopeId: e.target.value })}
+                                            placeholder="Ex: Casablanca"
+                                            required
+                                        />
+                                    </div>
+                                )}
                             </div>
+
                             <div className="form-group">
                                 <label className="form-label">Message</label>
                                 <textarea
                                     className="form-input"
-                                    rows={3}
+                                    rows={4}
                                     value={formData.message}
                                     onChange={e => setFormData({ ...formData, message: e.target.value })}
-                                    placeholder="Détails de l'alerte..."
+                                    placeholder="Détails de l'alerte à diffuser..."
                                     required
                                 />
                             </div>
                             <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                                <AlertTriangle size={18} /> Publier l'alerte
+                                <Bell size={18} /> Diffuser l'alerte
                             </button>
                         </form>
                     </div>
@@ -199,4 +308,20 @@ export default function AlertsPage() {
             )}
         </div>
     )
+}
+
+// Helper components
+function TargetIcon({ type }) {
+    switch (type) {
+        case 'CITY': return <span title="Ville">🏙️</span>
+        case 'STADIUM': return <span title="Stade">🏟️</span>
+        case 'MATCH': return <span title="Match">⚽</span>
+        case 'ALL': return <span title="Global">🌍</span>
+        default: return <span>📍</span>
+    }
+}
+
+function formatScope(type, id) {
+    if (type === 'ALL') return 'Diffusion Globale'
+    return `${id || 'N/A'}`
 }
