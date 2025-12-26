@@ -1,10 +1,13 @@
 # Build stage
 FROM node:18-alpine AS builder
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package*.json ./
+# Install dependencies inside the container
 RUN npm ci
 
+# Copy source code (local node_modules are ignored via .dockerignore)
 COPY . .
 # Ensure public directory exists (even if empty)
 RUN mkdir -p public
@@ -14,8 +17,9 @@ RUN npm run build
 FROM node:18-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV PORT=3000
+ENV NODE_ENV=production \
+    PORT=3000 \
+    NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

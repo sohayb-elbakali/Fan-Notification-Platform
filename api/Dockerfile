@@ -1,19 +1,20 @@
-# Build stage
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Production stage
+# Production build
 FROM node:18-alpine
+
 WORKDIR /app
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nodeuser -u 1001
 
-COPY --from=builder /app/node_modules ./node_modules
+# Copy package files first
+COPY package*.json ./
+
+# Install dependencies DIRECTLY here
+ENV NODE_ENV=production
+RUN npm ci --only=production
+
+# Copy source code (ignores host node_modules via .dockerignore)
 COPY src ./src
-COPY package.json ./
 
 # Set environment
 ENV NODE_ENV=production
