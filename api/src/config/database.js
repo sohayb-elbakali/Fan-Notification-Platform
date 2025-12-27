@@ -76,8 +76,21 @@ async function query(queryString, params = {}) {
                 request.input(key, sql.Bit, value);
             } else if (value instanceof Date) {
                 request.input(key, sql.DateTime, value);
+            } else if (typeof value === 'string') {
+                // Try to detect if this is a datetime string (ISO 8601 format)
+                const dateRegex = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d{3})?(Z|[+-]\d{2}:\d{2})?$/;
+                if (dateRegex.test(value)) {
+                    const parsedDate = new Date(value);
+                    if (!isNaN(parsedDate.getTime())) {
+                        request.input(key, sql.DateTime, parsedDate);
+                    } else {
+                        request.input(key, sql.NVarChar, value);
+                    }
+                } else {
+                    request.input(key, sql.NVarChar, value);
+                }
             } else {
-                request.input(key, sql.NVarChar, value);
+                request.input(key, sql.NVarChar, String(value));
             }
         }
 
