@@ -17,6 +17,19 @@ def lambda_handler(event, context):
     print(f"Received event: {json.dumps(event)}")
     
     try:
+        # Handle GET requests (for browser testing)
+        http_method = event.get('requestContext', {}).get('http', {}).get('method', 'POST')
+        if http_method == 'GET':
+            return build_response(200, {
+                'message': 'CAN 2025 Event Processor is running',
+                'version': '1.0.0',
+                'endpoints': {
+                    'POST /': 'Send event notifications'
+                },
+                'gcp_notify_url': GCP_NOTIFY_URL,
+                'status': 'healthy'
+            })
+        
         # Parse the request body (Function URL sends body as string)
         if isinstance(event.get('body'), str):
             body = json.loads(event['body'])
