@@ -192,38 +192,7 @@ export default function HomePage() {
                     </section>
                 )}
 
-                {/* Architecture Info */}
-                <section style={{ marginBottom: '3rem' }}>
-                    <h2 className="section-title">
-                        Architecture Multi-Cloud
-                    </h2>
-                    <div style={{ height: '1rem' }}></div>
-                    <div className="arch-card">
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            gap: '4rem',
-                            flexWrap: 'wrap',
-                            padding: '1rem 0'
-                        }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <div className="arch-icon">☁️</div>
-                                <div className="arch-name">GCP</div>
-                                <div className="arch-desc">Cloud Run + CI/CD</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <div className="arch-icon">🔷</div>
-                                <div className="arch-name">Azure</div>
-                                <div className="arch-desc">SQL Database</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <div className="arch-icon">🔶</div>
-                                <div className="arch-name">AWS</div>
-                                <div className="arch-desc">Events + Email</div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+
             </main>
 
             {/* Footer */}

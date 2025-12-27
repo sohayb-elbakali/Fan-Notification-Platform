@@ -6,42 +6,42 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Primary Colors - African Red & Green */
-  --primary: #C41E3A;
-  /* Classic African Red */
-  --primary-dark: #9B1B30;
-  --primary-light: #E63946;
+  /* Primary Colors - Richer African Red & Green */
+  --primary: #9d091a;
+  /* Deep Crimson */
+  --primary-dark: #7a0410;
+  --primary-light: #c9182b;
 
-  --secondary: #1D6F42;
-  /* Classic African Green */
-  --secondary-dark: #155235;
-  --secondary-light: #2D8B55;
+  --secondary: #005c35;
+  /* Deep Emerald */
+  --secondary-dark: #004225;
+  --secondary-light: #007a48;
 
   /* Accent Colors */
-  --gold: #D4AF37;
-  /* African Gold */
-  --gold-light: #F4D03F;
-  --gold-dark: #B8960C;
+  --gold: #cfa832;
+  /* Antique Gold */
+  --gold-light: #e6c55c;
+  --gold-dark: #9e7e1e;
 
   /* Background & Surfaces */
-  --background: #0A1612;
-  /* Deep forest dark */
-  --background-gradient: linear-gradient(135deg, #0A1612 0%, #0F1F1A 50%, #0A1612 100%);
-  --surface: #132418;
-  /* Dark green surface */
-  --surface-light: #1E3A2D;
-  --surface-hover: #193026;
+  --background: #050f0c;
+  /* Darker, richer forest black */
+  --background-gradient: radial-gradient(circle at top right, #0d2618 0%, #050f0c 60%);
+
+  --surface: #0c1a14;
+  --surface-light: #162b21;
+  --surface-hover: #1f382d;
 
   /* Text Colors */
-  --text: #F5F5F0;
-  --text-muted: #9CA8A2;
-  --text-light: #D4DDD8;
+  --text: #f0f2f1;
+  --text-muted: #8b9c96;
+  --text-light: #dbebe3;
 
   /* Status Colors */
-  --danger: #DC3545;
-  --success: #28A745;
-  --warning: #FFC107;
-  --info: #17A2B8;
+  --danger: #cf2e2e;
+  --success: #1f9d55;
+  --warning: #cc9a06;
+  --info: #0ea5e9;
 
   /* Effects */
   --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -78,8 +78,9 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   background-image:
-    radial-gradient(circle at top right, rgba(29, 111, 66, 0.15), transparent 40%),
-    radial-gradient(circle at bottom left, rgba(196, 30, 58, 0.1), transparent 40%);
+    radial-gradient(circle at 100% 0%, rgba(0, 92, 53, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(157, 9, 26, 0.1) 0%, transparent 40%),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   background-attachment: fixed;
 }
 
@@ -96,13 +97,15 @@ body {
    HEADER - Classic Style
    ==================================== */
 .header {
-  background: #0f1f18;
+  background: rgba(12, 26, 20, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   padding: 0;
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
 
 .header-content {

@@ -101,8 +101,13 @@ echo -n "VOTRE_PASSWORD" | gcloud secrets create azure-db-password --data-file=-
 echo -n "VOTRE_TOKEN_SECRET" | gcloud secrets create notify-token --data-file=-
 
 # Placeholders (à mettre à jour)
-echo -n "https://placeholder" | gcloud secrets create lambda-function-url --data-file=-
 echo -n "https://placeholder" | gcloud secrets create backend-api-url --data-file=-
+
+# Email Configuration (Gmail)
+echo -n "smtp.gmail.com" | gcloud secrets create smtp-host --data-file=-
+echo -n "587" | gcloud secrets create smtp-port --data-file=-
+echo -n "votre-email@gmail.com" | gcloud secrets create smtp-user --data-file=-
+echo -n "votre-app-password" | gcloud secrets create smtp-pass --data-file=-
 ```
 
 ### 4.4 Permissions Secrets
@@ -110,7 +115,7 @@ echo -n "https://placeholder" | gcloud secrets create backend-api-url --data-fil
 ```bash
 PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format='value(projectNumber)')
 
-for secret in azure-db-server azure-db-name azure-db-user azure-db-password notify-token lambda-function-url backend-api-url; do
+for secret in azure-db-server azure-db-name azure-db-user azure-db-password notify-token lambda-function-url backend-api-url smtp-host smtp-port smtp-user smtp-pass; do
   gcloud secrets add-iam-policy-binding $secret \
     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
     --role="roles/secretmanager.secretAccessor"
@@ -229,9 +234,13 @@ cd ../api
 docker build -t europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/backend:latest .
 docker push europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/backend:latest
 
-# frontend
+# frontend (nécessite l'URL du backend au build)
+# Récupérer l'URL backend d'abord ou utiliser un placeholder si 1er déploiement
+export BACKEND_URL="https://can2025-backend-xxxxx.run.app" 
 cd ../frontend
-docker build -t europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest .
+docker build \
+  --build-arg NEXT_PUBLIC_API_URL=$BACKEND_URL \
+  -t europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest .
 docker push europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest
 ```
 
@@ -245,7 +254,7 @@ gcloud run deploy can2025-notify-service \
   --allow-unauthenticated \
   --port 8080 \
   --memory 256Mi \
-  --set-secrets "NOTIFY_TOKEN=notify-token:latest" \
+  --set-secrets "NOTIFY_TOKEN=notify-token:latest,SMTP_HOST=smtp-host:latest,SMTP_PORT=smtp-port:latest,SMTP_USER=smtp-user:latest,SMTP_PASS=smtp-pass:latest" \
   --set-env-vars "NODE_ENV=production,LOG_LEVEL=info"
 ```
 
@@ -288,8 +297,7 @@ gcloud run deploy can2025-frontend \
   --platform managed \
   --allow-unauthenticated \
   --port 3000 \
-  --memory 512Mi \
-  --set-secrets "NEXT_PUBLIC_API_URL=backend-api-url:latest"
+  --memory 512Mi
 ```
 
 ---
