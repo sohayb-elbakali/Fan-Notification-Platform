@@ -3,6 +3,10 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Accept API URL as build argument (required for NEXT_PUBLIC_* variables)
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 COPY package*.json ./
 # Install dependencies inside the container
 RUN npm ci
