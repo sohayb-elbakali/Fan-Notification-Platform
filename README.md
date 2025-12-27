@@ -10,18 +10,27 @@ Plateforme multi-cloud de notifications pour les fans de la CAN 2025.
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
 │   ┌──────────────────────────────────────────────────────────────────────────┐  │
-│   │                    GCP (Backend + Notify Service)                         │  │
-│   │  ┌─────────────────┐         ┌───────────────────┐                       │  │
-│   │  │  Cloud Run      │─────────│  Cloud Run        │                       │  │
-│   │  │  Backend API    │         │  notify-service   │                       │  │
-│   │  │                 │         │  (SMS/Email)      │                       │  │
-│   │  └────────┬────────┘         └───────────────────┘                       │  │
-│   │           │                           ▲                                   │  │
-│   │           │ Admin adds goal           │ HTTP POST                        │  │
-│   └───────────┼───────────────────────────┼──────────────────────────────────┘  │
-│               │                           │                                      │
-│               │ (1) Write to DB           │ (3) Notify                          │
-│               ▼                           │                                      │
+│   │                    GCP (Cloud Run + Secret Manager)                       │  │
+│   │                                                                           │  │
+│   │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐       │  │
+│   │  │  Artifact       │    │  Secret         │    │  Cloud Run      │       │  │
+│   │  │  Registry       │───▶│  Manager        │───▶│  Services       │       │  │
+│   │  │  (Images)       │    │  (Secrets)      │    │                 │       │  │
+│   │  └─────────────────┘    └─────────────────┘    └────────┬────────┘       │  │
+│   │                                                          │                │  │
+│   │         ┌────────────────────────────────────────────────┼────────┐      │  │
+│   │         │                                                │        │      │  │
+│   │         ▼                                                ▼        ▼      │  │
+│   │  ┌─────────────┐         ┌─────────────────┐    ┌─────────────┐         │  │
+│   │  │  Frontend   │────────▶│  Backend API    │    │ notify-svc  │         │  │
+│   │  │  (Next.js)  │         │  (Node.js)      │    │ (Node.js)   │         │  │
+│   │  │  :3000      │         │  :8080          │    │ :8080       │         │  │
+│   │  └─────────────┘         └────────┬────────┘    └──────▲──────┘         │  │
+│   │                                   │                     │                │  │
+│   └───────────────────────────────────┼─────────────────────┼────────────────┘  │
+│                                       │                     │                    │
+│                                       │ (1)                 │ (3)                │
+│                                       ▼                     │                    │
 │   ┌──────────────────────────────────────────────────────────────────────────┐  │
 │   │                    AZURE (Database)                                       │  │
 │   │                 ┌─────────────────────┐                                   │  │
@@ -31,292 +40,262 @@ Plateforme multi-cloud de notifications pour les fans de la CAN 2025.
 │   │                 └─────────────────────┘                                   │  │
 │   └──────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                  │
-│               │ (2) Call Function URL                                           │
-│               ▼                                                                  │
+│                                       │ (2)                                      │
+│                                       ▼                                          │
 │   ┌──────────────────────────────────────────────────────────────────────────┐  │
-│   │                  AWS (Event Processor Lambda)                             │  │
+│   │                  AWS Lambda (eu-west-3 Paris)                             │  │
 │   │  ┌─────────────────────────────────────────────────────────────────────┐ │  │
 │   │  │         Lambda: can2025-event-processor                             │ │  │
 │   │  │         (Function URL enabled)                                      │ │  │
 │   │  │                                                                      │ │  │
-│   │  │  Receives:                        Calls:                            │ │  │
-│   │  │  {                                POST to GCP notify-service        │ │  │
-│   │  │    "type": "goal.scored",         with SMS payload                  │ │  │
-│   │  │    "matchId": "M123",                                               │ │  │
-│   │  │    "minute": 63,                                                    │ │  │
-│   │  │    "score": {"A":2,"B":1},                                          │ │  │
-│   │  │    "recipients": ["+212..."]                                        │ │  │
-│   │  │  }                                                                  │ │  │
+│   │  │  Env Variables:                      Calls GCP notify-service       │ │  │
+│   │  │  - GCP_NOTIFY_URL                    via HTTP POST                  │ │  │
+│   │  │  - GCP_NOTIFY_TOKEN                                                 │ │  │
 │   │  └─────────────────────────────────────────────────────────────────────┘ │  │
 │   └──────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Workflow
-
-1. **Admin Action**: Admin adds a goal via the frontend
-2. **Backend (GCP)**: 
-   - Writes goal data to Azure SQL
-   - Calls AWS Lambda Function URL with event payload
-3. **Lambda (AWS)**: 
-   - Processes the event
-   - Calls GCP Cloud Run notify-service via HTTP POST
-4. **notify-service (GCP)**:
-   - Validates `X-Notify-Token` header
-   - Logs the SMS payload
-   - Stores notification (optional)
-   - Returns 200 OK
-
 ## Structure du Projet
 
 ```
 Fan-Notification-Platform/
 ├── api/                      # Backend Node.js (GCP Cloud Run)
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-│       ├── index.js
-│       ├── config/database.js
-│       ├── routes/
-│       │   ├── matches.js     # Calls Lambda on goal add
-│       │   └── ...
-│       └── services/
-│           └── lambda.js      # Lambda Function URL client
-├── notify-service/           # GCP Cloud Run Notify Service
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-│       ├── index.js          # Express server
-│       └── handlers/
-│           └── notify.js      # SMS notification handler
+├── notify-service/           # Notification Service (GCP Cloud Run)
 ├── frontend/                 # Frontend Next.js (GCP Cloud Run)
-│   ├── Dockerfile
-│   ├── package.json
-│   └── app/
-│       ├── page.js           # Homepage
-│       ├── teams/page.js     # Team management
-│       ├── fans/page.js      # Fan management
-│       ├── matches/page.js   # Match management + goals
-│       └── alerts/page.js    # Alerts
-├── database/                 # Azure SQL Schema
-│   ├── schema.sql
-│   └── seed.sql
 ├── lambda/                   # AWS Lambda Event Processor
-│   ├── handler.py
-│   └── requirements.txt
-└── cloudbuild.yaml          # GCP CI/CD Pipeline
+├── database/                 # Azure SQL Schema
+└── docs/                     # Documentation
 ```
 
-## Configuration des Services
+---
 
-### A) AWS Lambda: `can2025-event-processor`
+## 🚀 Déploiement Manuel - Guide Étape par Étape
 
-#### Créer la Lambda avec Function URL
+### Étape 1: Prérequis
 
 ```bash
-# Créer la fonction Lambda
-aws lambda create-function \
-  --function-name can2025-event-processor \
-  --runtime python3.9 \
-  --handler handler.lambda_handler \
-  --role arn:aws:iam::ACCOUNT_ID:role/lambda-execution-role \
-  --zip-file fileb://lambda/function.zip
-
-# Activer Function URL
-aws lambda create-function-url-config \
-  --function-name can2025-event-processor \
-  --auth-type NONE \
-  --cors '{
-    "AllowOrigins": ["*"],
-    "AllowMethods": ["POST"],
-    "AllowHeaders": ["Content-Type", "Authorization"]
-  }'
+# Vérifier les outils
+gcloud --version
+aws --version
+docker --version
 ```
 
-#### Variables d'environnement Lambda
+### Étape 2: Configurer GCP
 
-| Variable | Description | Exemple |
-|----------|-------------|---------|
-| `GCP_NOTIFY_URL` | URL du service notify sur GCP | `https://notify-service-xxxxx.run.app/notify` |
-| `GCP_NOTIFY_TOKEN` | Token partagé pour authentification | `your-shared-secret-token` |
-
-#### Payload reçu par Lambda
-
-```json
-{
-  "type": "goal.scored",
-  "matchId": "M123",
-  "minute": 63,
-  "score": {"A": 2, "B": 1},
-  "recipients": ["+2126xxxxxxxx", "+33xxxxxxxxx"]
-}
-```
-
-### B) GCP Cloud Run: `notify-service`
-
-Un micro-service qui :
-- Valide le header `X-Notify-Token`
-- Log le payload SMS
-- Stocke la notification (optionnel)
-- Retourne 200 OK
-
-#### Payload envoyé au notify-service
-
-```json
-{
-  "channel": "sms",
-  "recipients": ["+2126xxxxxxxx"],
-  "message": "BUT! Maroc 2-1 à 63'.",
-  "eventType": "goal.scored",
-  "timestamp": "2025-01-15T15:30:00Z"
-}
-```
-
-#### Variables d'environnement notify-service
-
-| Variable | Description | Exemple |
-|----------|-------------|---------|
-| `NOTIFY_TOKEN` | Token pour validation des requêtes | `your-shared-secret-token` |
-| `LOG_LEVEL` | Niveau de log | `info` |
-
-### C) Backend GCP Cloud Run
-
-Quand l'admin ajoute un but :
-1. Écriture dans Azure SQL
-2. Appel de la Lambda Function URL avec le payload minimal
-
-#### Variables d'environnement Backend
-
-| Variable | Description | Exemple |
-|----------|-------------|---------|
-| `LAMBDA_FUNCTION_URL` | URL de la Lambda AWS | `https://xxxxx.lambda-url.eu-west-1.on.aws/` |
-| `DB_SERVER` | Serveur Azure SQL | `can2025-server.database.windows.net` |
-| `DB_NAME` | Nom de la base | `can2025db` |
-| `DB_USER` | Utilisateur | `can2025admin` |
-| `DB_PASSWORD` | Mot de passe | `***` |
-
-## Quickstart Local
-
-### 1. Backend API
 ```bash
-cd api
-npm install
-cp .env.example .env
-# Éditer .env avec vos configurations
-npm run dev
-```
+# Se connecter
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
 
-### 2. Notify Service
-```bash
-cd notify-service
-npm install
-cp .env.example .env
-npm run dev
-```
+# Activer les APIs
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
 
-### 3. Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## Déploiement GCP
-
-### Prérequis
-1. Créer un projet GCP
-2. Activer les APIs: Cloud Run, Artifact Registry, Cloud Build
-3. Créer un dépôt Artifact Registry:
-```bash
+# Créer Artifact Registry
 gcloud artifacts repositories create can2025 \
   --repository-format=docker \
-  --location=europe-west1
+  --location=europe-west1 \
+  --description="CAN 2025 Docker images"
+
+# Configurer Docker pour GCP
+gcloud auth configure-docker europe-west1-docker.pkg.dev
 ```
 
-### Déployer notify-service
+### Étape 3: Créer les Secrets GCP
+
 ```bash
+# Azure SQL
+echo -n "YOUR_DB_SERVER.database.windows.net" | gcloud secrets create azure-db-server --data-file=-
+echo -n "YOUR_DB_NAME" | gcloud secrets create azure-db-name --data-file=-
+echo -n "YOUR_DB_USER" | gcloud secrets create azure-db-user --data-file=-
+echo -n "YOUR_DB_PASSWORD" | gcloud secrets create azure-db-password --data-file=-
+
+# Token partagé (générer un UUID ou string aléatoire)
+echo -n "YOUR_SHARED_SECRET_TOKEN" | gcloud secrets create notify-token --data-file=-
+
+# Lambda URL (placeholder, on met à jour après)
+echo -n "https://xxxxx.lambda-url.eu-west-3.on.aws/" | gcloud secrets create lambda-function-url --data-file=-
+
+# Backend URL (placeholder, on met à jour après)
+echo -n "https://placeholder.run.app" | gcloud secrets create backend-api-url --data-file=-
+```
+
+### Étape 4: Donner accès aux Secrets
+
+```bash
+PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format='value(projectNumber)')
+
+for secret in azure-db-server azure-db-name azure-db-user azure-db-password notify-token lambda-function-url backend-api-url; do
+  gcloud secrets add-iam-policy-binding $secret \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+done
+```
+
+### Étape 5: Build et Push Images
+
+```bash
+PROJECT_ID=$(gcloud config get-value project)
+
+# 1. Build et push notify-service
 cd notify-service
-gcloud run deploy notify-service \
-  --source . \
+docker build -t europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/notify-service:latest .
+docker push europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/notify-service:latest
+
+# 2. Build et push backend
+cd ../api
+docker build -t europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/backend:latest .
+docker push europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/backend:latest
+
+# 3. Build et push frontend
+cd ../frontend
+docker build -t europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest .
+docker push europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest
+```
+
+### Étape 6: Deploy notify-service
+
+```bash
+gcloud run deploy can2025-notify-service \
+  --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/notify-service:latest \
   --region europe-west1 \
+  --platform managed \
   --allow-unauthenticated \
-  --set-env-vars "NOTIFY_TOKEN=your-shared-secret"
+  --port 8080 \
+  --memory 256Mi \
+  --set-secrets "NOTIFY_TOKEN=notify-token:latest" \
+  --set-env-vars "NODE_ENV=production,LOG_LEVEL=info"
 ```
 
-### Déployer le Backend
-```bash
-cd api
-gcloud run deploy can2025-backend \
-  --source . \
-  --region europe-west1 \
-  --allow-unauthenticated \
-  --set-env-vars "LAMBDA_FUNCTION_URL=https://xxxxx.lambda-url.eu-west-1.on.aws/"
-```
+**⚠️ Noter l'URL du service** (ex: `https://can2025-notify-service-xxxxx.run.app`)
 
-### Déploiement automatique
-Le pipeline Cloud Build se déclenche sur push vers `main`:
-```bash
-git push origin main
-```
+### Étape 7: Configurer AWS Lambda (eu-west-3)
 
-## Configuration AWS
-
-### 1. Créer la Lambda avec Function URL
-```bash
-# Créer le package
+```powershell
+# PowerShell - Créer le zip
 cd lambda
-zip -r function.zip handler.py
+Compress-Archive -Path handler.py -DestinationPath function.zip -Force
 
-# Créer la fonction
-aws lambda create-function \
-  --function-name can2025-event-processor \
-  --runtime python3.9 \
-  --handler handler.lambda_handler \
-  --role arn:aws:iam::ACCOUNT_ID:role/lambda-execution-role \
-  --zip-file fileb://function.zip \
-  --environment "Variables={GCP_NOTIFY_URL=https://notify-service-xxxxx.run.app/notify,GCP_NOTIFY_TOKEN=your-secret}"
+# Obtenir le Role ARN
+$ROLE_ARN = aws iam get-role --role-name can2025-lambda-role --query 'Role.Arn' --output text --no-cli-pager
+
+# Créer la Lambda (eu-west-3)
+aws lambda create-function `
+  --function-name can2025-event-processor `
+  --runtime python3.9 `
+  --handler handler.lambda_handler `
+  --role $ROLE_ARN `
+  --zip-file fileb://function.zip `
+  --timeout 30 `
+  --memory-size 128 `
+  --region eu-west-3 `
+  --no-cli-pager
+
+# Configurer variables d'environnement (remplacer l'URL notify-service)
+aws lambda update-function-configuration `
+  --function-name can2025-event-processor `
+  --environment "Variables={GCP_NOTIFY_URL=https://can2025-notify-service-xxxxx.run.app/notify,GCP_NOTIFY_TOKEN=YOUR_SHARED_SECRET_TOKEN}" `
+  --region eu-west-3 `
+  --no-cli-pager
 
 # Activer Function URL
-aws lambda create-function-url-config \
-  --function-name can2025-event-processor \
-  --auth-type NONE
+aws lambda create-function-url-config `
+  --function-name can2025-event-processor `
+  --auth-type NONE `
+  --region eu-west-3 `
+  --no-cli-pager
+
+# Ajouter permission publique
+aws lambda add-permission `
+  --function-name can2025-event-processor `
+  --statement-id FunctionURLAllowPublicAccess `
+  --action lambda:InvokeFunctionUrl `
+  --principal "*" `
+  --function-url-auth-type NONE `
+  --region eu-west-3 `
+  --no-cli-pager
+
+# Obtenir l'URL Lambda
+aws lambda get-function-url-config --function-name can2025-event-processor --query 'FunctionUrl' --output text --region eu-west-3 --no-cli-pager
 ```
 
-### 2. Obtenir l'URL de la Function
+**⚠️ Noter l'URL Lambda** (ex: `https://xxxxx.lambda-url.eu-west-3.on.aws/`)
+
+### Étape 8: Mettre à jour le Secret Lambda URL
+
 ```bash
-aws lambda get-function-url-config \
-  --function-name can2025-event-processor
+echo -n "https://xxxxx.lambda-url.eu-west-3.on.aws/" | gcloud secrets versions add lambda-function-url --data-file=-
 ```
 
-## Événements
+### Étape 9: Deploy Backend
 
-| Type | Déclencheur | Notification |
-|------|-------------|--------------|
-| `match.scheduled` | Création match | SMS avec date/heure/stade |
-| `goal.scored` | Ajout but | SMS avec score |
-| `match.ended` | Fin du match | SMS avec score final |
+```bash
+gcloud run deploy can2025-backend \
+  --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/backend:latest \
+  --region europe-west1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --port 8080 \
+  --memory 512Mi \
+  --set-secrets "DB_SERVER=azure-db-server:latest,DB_NAME=azure-db-name:latest,DB_USER=azure-db-user:latest,DB_PASSWORD=azure-db-password:latest,LAMBDA_FUNCTION_URL=lambda-function-url:latest" \
+  --set-env-vars "NODE_ENV=production"
+```
+
+**⚠️ Noter l'URL du backend** (ex: `https://can2025-backend-xxxxx.run.app`)
+
+### Étape 10: Mettre à jour le Secret Backend URL
+
+```bash
+echo -n "https://can2025-backend-xxxxx.run.app" | gcloud secrets versions add backend-api-url --data-file=-
+```
+
+### Étape 11: Deploy Frontend
+
+```bash
+gcloud run deploy can2025-frontend \
+  --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest \
+  --region europe-west1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --port 3000 \
+  --memory 512Mi \
+  --set-secrets "NEXT_PUBLIC_API_URL=backend-api-url:latest"
+```
+
+---
+
+## Vérification
+
+```bash
+# Logs notify-service
+gcloud run logs read can2025-notify-service --region europe-west1
+
+# Logs backend
+gcloud run logs read can2025-backend --region europe-west1
+
+# Logs Lambda
+aws logs tail /aws/lambda/can2025-event-processor --follow --region eu-west-3 --no-cli-pager
+```
+
+---
+
+## Ports
+
+| Service | Port Local | Port Cloud Run |
+|---------|------------|----------------|
+| Frontend | 3000 | 3000 |
+| Backend API | 8080 | 8080 |
+| Notify Service | 9001 | 8080 |
+
+---
 
 ## Répartition des Tâches (5 membres)
 
-| Membre | Responsabilité | Livrables |
-|--------|---------------|-----------|
-| 1 | GCP Artifact Registry | Repository, naming, push/pull |
-| 2 | GCP Cloud Run (Backend + notify-service) | Déploiement des 2 services |
-| 3 | Pipeline CI/CD | cloudbuild.yaml, triggers |
-| 4 | Azure SQL Database | Schema, migration, connexion |
-| 5 | AWS Lambda + Function URL | Lambda, configuration, tests |
-
-## Démo (5-7 minutes)
-
-1. **Push commit** → Cloud Build déploie automatiquement
-2. **Créer fans** + abonnements via interface
-3. **Créer match** → event `match.scheduled` → SMS notification
-4. **Ajouter but** → event `goal.scored` → SMS notification
-5. **Montrer les logs** Lambda et notify-service
-
-## Sécurité
-
-- Communication inter-services sécurisée via token partagé (`X-Notify-Token`)
-- Lambda Function URL avec CORS configuré
-- Azure SQL avec firewall et connexion chiffrée
+| Membre | Responsabilité |
+|--------|---------------|
+| 1 | GCP Artifact Registry (Étapes 2, 5) |
+| 2 | GCP Cloud Run + Secret Manager (Étapes 3, 4, 6, 9, 11) |
+| 3 | AWS Lambda + Function URL (Étape 7) |
+| 4 | Azure SQL Database |
+| 5 | Frontend + Intégration |
