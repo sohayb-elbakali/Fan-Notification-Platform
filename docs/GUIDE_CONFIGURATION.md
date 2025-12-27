@@ -302,29 +302,104 @@ gcloud run deploy can2025-frontend \
 
 ---
 
-## 7. Vérification
+## 7. URLs Déployées ✅
 
-### Logs
+| Service | URL |
+|---------|-----|
+| **Frontend** | https://can2025-frontend-xxxxx.a.run.app |
+| **Backend** | https://can2025-backend-xxxxx.a.run.app |
+| **Notify Service** | https://can2025-notify-service-xxxxx.a.run.app |
+| **Lambda** | https://xxxxx.lambda-url.eu-west-3.on.aws/ |
+
+---
+
+## 8. Tests de Vérification
+
+### 8.1 Test Notify Service Health
+
 ```bash
-# GCP
-gcloud run logs read can2025-notify-service --region europe-west1
-gcloud run logs read can2025-backend --region europe-west1
-
-# AWS
-aws logs tail /aws/lambda/can2025-event-processor --follow --region eu-west-3 --no-cli-pager
+curl https://can2025-notify-service-xxxxx.a.run.app/health
 ```
 
-### Test notify-service
+**Réponse attendue:**
+```json
+{
+  "status": "healthy",
+  "service": "CAN 2025 Notify Service",
+  "emailConfigured": true,
+  "timestamp": "2025-12-27T22:48:30.917Z"
+}
+```
+
+### 8.2 Test Backend API
+
 ```bash
-curl -X POST https://can2025-notify-service-xxxxx.run.app/notify \
-  -H "Content-Type: application/json" \
-  -H "X-Notify-Token: VOTRE_TOKEN_SECRET" \
-  -d '{"channel":"sms","recipients":["+212xxx"],"message":"Test","eventType":"test"}'
+# Lister les équipes
+curl https://can2025-backend-xxxxx.a.run.app/teams
+
+# Lister les matchs
+curl https://can2025-backend-xxxxx.a.run.app/matches
+
+# Lister les fans
+curl https://can2025-backend-xxxxx.a.run.app/fans
+```
+
+### 8.3 Test Notification Manuelle
+
+```powershell
+# PowerShell - Envoyer une notification test
+Invoke-RestMethod -Uri "https://can2025-notify-service-xxxxx.a.run.app/notify" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{"X-Notify-Token"="VOTRE_TOKEN"} `
+  -Body '{"channel":"email","recipients":["votre-email@gmail.com"],"message":"Test CAN 2025!","eventType":"test"}'
+```
+
+### 8.4 Voir les Logs
+
+```bash
+# Logs notify-service
+gcloud run services logs read can2025-notify-service --region europe-west9 --limit 20
+
+# Logs backend
+gcloud run services logs read can2025-backend --region europe-west9 --limit 20
 ```
 
 ---
 
-## 8. Récapitulatif Secrets
+## 9. Flux Complet: Créer un Match → Notification
+
+### Étape 1: Créer un match
+
+```powershell
+Invoke-RestMethod -Uri "https://can2025-backend-xxxxx.a.run.app/matches" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{
+    "teamAId": "ID_EQUIPE_A",
+    "teamBId": "ID_EQUIPE_B",
+    "stadium": "Stade Mohammed V",
+    "city": "Casablanca",
+    "kickoffTime": "2025-01-15T20:00:00Z"
+  }'
+```
+
+### Étape 2: Vérifier les logs
+
+```bash
+# Les logs doivent montrer:
+# 1. Backend: "📤 Calling Lambda Function URL..."
+# 2. Lambda: "Processing event type: match.scheduled"
+# 3. Notify: "📱 NOTIFICATION RECEIVED" + "✅ Email sent to..."
+```
+
+### Étape 3: Vérifier email
+
+Tous les fans abonnés à l'équipe A ou B recevront un email!
+
+---
+
+## 10. Récapitulatif Secrets
 
 | Secret | Valeur | Utilisé par |
 |--------|--------|-------------|
@@ -334,11 +409,14 @@ curl -X POST https://can2025-notify-service-xxxxx.run.app/notify \
 | azure-db-password | *** | Backend |
 | lambda-function-url | https://xxxxx.lambda-url.eu-west-3.on.aws/ | Backend |
 | notify-token | shared-token | notify-service, Lambda |
-| backend-api-url | https://can2025-backend-xxx.run.app | Frontend |
+| smtp-host | smtp.gmail.com | notify-service |
+| smtp-port | 587 | notify-service |
+| smtp-user | email@gmail.com | notify-service |
+| smtp-pass | app-password | notify-service |
 
 ---
 
-## 9. Ordre de Déploiement
+## 11. Ordre de Déploiement
 
 1. ✅ Azure SQL Database
 2. ✅ GCP Secrets (créer tous)
@@ -351,4 +429,4 @@ curl -X POST https://can2025-notify-service-xxxxx.run.app/notify \
 
 ---
 
-**Bonne configuration ! 🚀**
+**Bonne configuration ! 🚀⚽**
