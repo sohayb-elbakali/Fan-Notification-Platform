@@ -8,6 +8,7 @@ const { query, sql } = require('../config/database');
 const EventTypes = {
     MATCH_SCHEDULED: 'match.scheduled',
     GOAL_SCORED: 'goal.scored',
+    MATCH_ENDED: 'match.ended',
     ALERT_PUBLISHED: 'alert.published'
 };
 
@@ -50,49 +51,141 @@ async function createEvent(type, payload, trans = null) {
 }
 
 /**
- * Publish event to AWS EventBridge
+ * Get recipients for a match (fans subscribed to either team)
  */
-async function publishToEventBridge(eventId, eventType, payload) {
-    const eventBridgeEndpoint = process.env.AWS_EVENTBRIDGE_ENDPOINT;
-    const awsAccessKey = process.env.AWS_ACCESS_KEY_ID;
-    const awsSecretKey = process.env.AWS_SECRET_ACCESS_KEY;
-    const eventBusBus = process.env.AWS_EVENTBRIDGE_BUS || 'can2025-events';
+async function getMatchRecipients(matchId) {
+    try {
+        const matchResult = await query(`
+            SELECT m.id, m.team_a_id, m.team_b_id
+            FROM matches m
+            WHERE m.id = @matchId
+        `, { matchId });
 
-    if (!eventBridgeEndpoint) {
-        console.log('⚠️  AWS_EVENTBRIDGE_ENDPOINT not configured');
+        if (matchResult.recordset.length === 0) {
+            return [];
+        }
+
+        const match = matchResult.recordset[0];
+
+        // Get phone numbers from fans subscribed to either team
+        const fansResult = await query(`
+            SELECT DISTINCT f.id, f.email, f.phone, f.language
+            FROM fans f
+            INNER JOIN fan_teams ft ON f.id = ft.fan_id
+            WHERE ft.team_id IN (@teamA, @teamB)
+            AND f.phone IS NOT NULL
+        `, { teamA: match.team_a_id, teamB: match.team_b_id });
+
+        return fansResult.recordset.map(f => f.phone).filter(Boolean);
+    } catch (error) {
+        console.error('Error fetching match recipients:', error.message);
+        return [];
+    }
+}
+
+/**
+ * Get recipients for an alert
+ */
+async function getAlertRecipients(alertId) {
+    try {
+        const alertResult = await query(`
+            SELECT id, scope_type, scope_id
+            FROM alerts WHERE id = @alertId
+        `, { alertId });
+
+        if (alertResult.recordset.length === 0) {
+            return [];
+        }
+
+        const alert = alertResult.recordset[0];
+        let fansResult;
+
+        if (alert.scope_type === 'ALL') {
+            fansResult = await query(`SELECT id, phone FROM fans WHERE phone IS NOT NULL`);
+        } else if (alert.scope_type === 'CITY') {
+            fansResult = await query(`
+                SELECT DISTINCT f.id, f.phone
+                FROM fans f
+                INNER JOIN fan_teams ft ON f.id = ft.fan_id
+                INNER JOIN matches m ON (ft.team_id = m.team_a_id OR ft.team_id = m.team_b_id)
+                WHERE m.city = @city AND f.phone IS NOT NULL
+            `, { city: alert.scope_id });
+        } else {
+            return [];
+        }
+
+        return fansResult.recordset.map(f => f.phone).filter(Boolean);
+    } catch (error) {
+        console.error('Error fetching alert recipients:', error.message);
+        return [];
+    }
+}
+
+/**
+ * Publish event to AWS Lambda Function URL
+ */
+async function publishToLambda(eventId, eventType, payload) {
+    const lambdaFunctionUrl = process.env.LAMBDA_FUNCTION_URL;
+
+    if (!lambdaFunctionUrl) {
+        console.log('⚠️  LAMBDA_FUNCTION_URL not configured');
         console.log(`📤 Event [${eventType}]: ${eventId}`);
         console.log(`📦 Payload:`, JSON.stringify(payload.data, null, 2));
         return { success: true, mock: true };
     }
 
     try {
-        // Format event for EventBridge
-        const eventBridgeEvent = {
-            Source: 'can2025.backend',
-            DetailType: eventType,
-            Detail: JSON.stringify(payload.data),
-            EventBusName: eventBusBus
+        // Get recipients based on event type
+        let recipients = [];
+        if (eventType === EventTypes.MATCH_SCHEDULED || eventType === EventTypes.GOAL_SCORED || eventType === EventTypes.MATCH_ENDED) {
+            recipients = await getMatchRecipients(payload.data.matchId);
+        } else if (eventType === EventTypes.ALERT_PUBLISHED) {
+            recipients = await getAlertRecipients(payload.data.alertId);
+        }
+
+        if (recipients.length === 0) {
+            console.log(`⚠️  No recipients found for event: ${eventId}`);
+            await updateEventStatus(eventId, EventStatus.PROCESSED);
+            return { success: true, recipients: 0 };
+        }
+
+        // Build Lambda payload
+        const lambdaPayload = {
+            type: eventType,
+            matchId: payload.data.matchId,
+            minute: payload.data.minute,
+            player: payload.data.player,
+            score: payload.data.score,
+            teamAName: payload.data.teamAName,
+            teamBName: payload.data.teamBName,
+            stadium: payload.data.stadium,
+            city: payload.data.city,
+            kickoffTime: payload.data.kickoffTime,
+            message: payload.data.message,
+            category: payload.data.category,
+            severity: payload.data.severity,
+            recipients: recipients
         };
 
-        // Note: In production, use AWS SDK for proper signing
-        // This is a simplified version for demonstration
+        console.log(`📤 Calling Lambda Function URL for event: ${eventId}`);
+        console.log(`📱 Recipients: ${recipients.length}`);
+
         const response = await axios.post(
-            eventBridgeEndpoint,
-            { Entries: [eventBridgeEvent] },
+            lambdaFunctionUrl,
+            lambdaPayload,
             {
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-Api-Key': process.env.AWS_API_KEY || ''
+                    'Content-Type': 'application/json'
                 },
-                timeout: 10000
+                timeout: 30000
             }
         );
 
         await updateEventStatus(eventId, EventStatus.SENT);
-        console.log(`✅ Event published to EventBridge: ${eventId}`);
-        return { success: true, response: response.data };
+        console.log(`✅ Event sent to Lambda: ${eventId}`);
+        return { success: true, response: response.data, recipients: recipients.length };
     } catch (error) {
-        console.error(`❌ EventBridge publish failed: ${error.message}`);
+        console.error(`❌ Lambda call failed: ${error.message}`);
         await updateEventStatus(eventId, EventStatus.FAILED);
         return { success: false, error: error.message };
     }
@@ -164,15 +257,15 @@ async function getPendingEvents() {
 }
 
 /**
- * Publish an event: create in outbox and publish to EventBridge
+ * Publish an event: create in outbox and call Lambda Function URL
  */
 async function publishEvent(type, payload) {
     const eventId = await createEvent(type, payload);
 
-    // Publish to EventBridge asynchronously
+    // Publish to Lambda asynchronously
     setImmediate(() => {
-        publishToEventBridge(eventId, type, payload).catch(err => {
-            console.error('Async EventBridge error:', err.message);
+        publishToLambda(eventId, type, payload).catch(err => {
+            console.error('Async Lambda call error:', err.message);
         });
     });
 
@@ -183,7 +276,7 @@ module.exports = {
     EventTypes,
     EventStatus,
     createEvent,
-    publishToEventBridge,
+    publishToLambda,
     updateEventStatus,
     getEvent,
     acknowledgeEvent,

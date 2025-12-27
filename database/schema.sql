@@ -11,6 +11,7 @@ CREATE TABLE teams (
 CREATE TABLE fans (
     id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
     email NVARCHAR(255) NOT NULL UNIQUE,
+    phone NVARCHAR(20),  -- Phone number for SMS notifications (e.g., +2126xxxxxxxx)
     language NVARCHAR(10) DEFAULT 'fr',
     created_at DATETIME2 DEFAULT GETUTCDATE()
 );

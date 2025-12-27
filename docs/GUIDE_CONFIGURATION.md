@@ -10,8 +10,8 @@ Ce guide vous accompagne étape par étape pour configurer et déployer la plate
 1. [Prérequis](#1-prérequis)
 2. [Configuration Locale](#2-configuration-locale)
 3. [Configuration Azure SQL Database](#3-configuration-azure-sql-database)
-4. [Configuration GCP (Cloud Run + CI/CD)](#4-configuration-gcp)
-5. [Configuration AWS (EventBridge + Lambda + SES)](#5-configuration-aws)
+4. [Configuration GCP (Cloud Run + notify-service)](#4-configuration-gcp)
+5. [Configuration AWS (Lambda + Function URL)](#5-configuration-aws)
 6. [Déploiement](#6-déploiement)
 7. [Test et Démonstration](#7-test-et-démonstration)
 8. [Dépannage](#8-dépannage)
@@ -68,7 +68,7 @@ cp .env.example .env
 
 **Éditer `api/.env` :**
 ```env
-# Mode développement (base de données simulée)
+# Mode développement
 NODE_ENV=development
 PORT=8080
 
@@ -78,8 +78,8 @@ PORT=8080
 # DB_USER=
 # DB_PASSWORD=
 
-# AWS (optionnel pour dev)
-# AWS_EVENTBRIDGE_ENDPOINT=
+# AWS Lambda Function URL
+LAMBDA_FUNCTION_URL=http://localhost:9000  # Pour dev local
 
 WEBHOOK_TOKEN=dev-secret-token
 ```
@@ -90,7 +90,33 @@ npm run dev
 ```
 > ✅ Le backend démarre sur http://localhost:8080
 
-### 2.2 Frontend (Next.js)
+### 2.2 Notify Service (Nouveau)
+
+```bash
+# Aller dans le dossier notify-service
+cd notify-service
+
+# Installer les dépendances
+npm install
+
+# Créer le fichier .env
+cp .env.example .env
+```
+
+**Éditer `notify-service/.env` :**
+```env
+PORT=9001
+NOTIFY_TOKEN=dev-secret-token
+LOG_LEVEL=debug
+```
+
+**Démarrer le notify-service :**
+```bash
+npm run dev
+```
+> ✅ Le notify-service démarre sur http://localhost:9001
+
+### 2.3 Frontend (Next.js)
 
 ```bash
 # Nouvelle fenêtre terminal
@@ -104,13 +130,13 @@ npm run dev
 ```
 > ✅ Le frontend démarre sur http://localhost:3000
 
-### 2.3 Tester en Local
+### 2.4 Tester en Local
 
 1. Ouvrir http://localhost:3000
 2. Aller dans **Équipes** → Créer 2 équipes
 3. Aller dans **Fans** → Inscrire un fan → L'abonner à une équipe
 4. Aller dans **Matchs** → Créer un match
-5. Vérifier les logs du backend : événement `match.scheduled` affiché
+5. Vérifier les logs du backend et du notify-service
 
 ---
 
@@ -220,30 +246,43 @@ gcloud artifacts repositories create can2025 \
    - Configuration : Cloud Build configuration file
    - Fichier : `cloudbuild.yaml`
 
-### 4.5 Configurer les Secrets (Variables d'environnement)
+### 4.5 Déployer le notify-service (GCP Cloud Run)
 
 ```bash
-# Créer les secrets pour Azure SQL
-gcloud secrets create azure-db-server --data-file=-
-# Entrer: can2025-server.database.windows.net
+cd notify-service
 
-gcloud secrets create azure-db-password --data-file=-
-# Entrer: <votre-mot-de-passe>
+# Déployer le service
+gcloud run deploy notify-service \
+  --source . \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --set-env-vars "NOTIFY_TOKEN=<votre-token-secret>,LOG_LEVEL=info"
 ```
 
-### 4.6 Déployer Manuellement (Premier déploiement)
+**Noter l'URL du service :**
+```
+https://notify-service-xxxxx.run.app
+```
+
+### 4.6 Déployer le Backend (GCP Cloud Run)
 
 ```bash
-# Backend
 cd api
+
+# Déployer le backend
 gcloud run deploy can2025-backend \
   --source . \
   --region europe-west1 \
   --allow-unauthenticated \
-  --set-env-vars "NODE_ENV=production,PORT=8080"
+  --set-env-vars "NODE_ENV=production,PORT=8080,LAMBDA_FUNCTION_URL=https://xxxxx.lambda-url.eu-west-1.on.aws/"
+```
 
-# Frontend (après avoir noté l'URL du backend)
-cd ../frontend
+### 4.7 Déployer le Frontend (GCP Cloud Run)
+
+```bash
+cd frontend
+
+# Déployer le frontend (après avoir noté l'URL du backend)
 gcloud run deploy can2025-frontend \
   --source . \
   --region europe-west1 \
@@ -265,36 +304,37 @@ aws configure
 # Default output format: json
 ```
 
-### 5.2 Vérifier votre Email dans SES
+### 5.2 Créer le Rôle IAM pour Lambda
 
 ```bash
-# Vérifier l'email expéditeur
-aws ses verify-email-identity \
-  --email-address noreply@votre-domaine.com
+# Créer la policy de confiance
+cat > trust-policy.json << EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
 
-# En mode sandbox, vérifier aussi les destinataires
-aws ses verify-email-identity \
-  --email-address destinataire@example.com
+# Créer le rôle
+aws iam create-role \
+  --role-name can2025-lambda-role \
+  --assume-role-policy-document file://trust-policy.json
+
+# Attacher la policy de base
+aws iam attach-role-policy \
+  --role-name can2025-lambda-role \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 ```
 
-### 5.3 Déployer la Stack CloudFormation
-
-```bash
-cd aws
-
-aws cloudformation create-stack \
-  --stack-name can2025-notifications \
-  --template-body file://cloudformation.json \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameters \
-    ParameterKey=BackendApiUrl,ParameterValue=https://can2025-backend-xxxxx.run.app \
-    ParameterKey=SesFromEmail,ParameterValue=noreply@votre-domaine.com
-
-# Attendre la création
-aws cloudformation wait stack-create-complete --stack-name can2025-notifications
-```
-
-### 5.4 Déployer le Code Lambda
+### 5.3 Créer et Déployer la Lambda
 
 ```bash
 cd lambda
@@ -302,27 +342,88 @@ cd lambda
 # Créer le package
 zip -r function.zip handler.py
 
-# Mettre à jour la fonction
-aws lambda update-function-code \
-  --function-name can2025-notification-handler \
-  --zip-file fileb://function.zip
+# Créer la fonction Lambda
+aws lambda create-function \
+  --function-name can2025-event-processor \
+  --runtime python3.9 \
+  --handler handler.lambda_handler \
+  --role arn:aws:iam::ACCOUNT_ID:role/can2025-lambda-role \
+  --zip-file fileb://function.zip \
+  --timeout 30 \
+  --memory-size 128
+
+# Ajouter les variables d'environnement
+aws lambda update-function-configuration \
+  --function-name can2025-event-processor \
+  --environment "Variables={GCP_NOTIFY_URL=https://notify-service-xxxxx.run.app/notify,GCP_NOTIFY_TOKEN=<votre-token-secret>}"
 ```
 
-### 5.5 Créer l'API Gateway (pour recevoir les événements du backend)
+### 5.4 Activer Function URL
 
 ```bash
-# Créer l'API HTTP
-aws apigatewayv2 create-api \
-  --name can2025-events-api \
-  --protocol-type HTTP \
-  --target arn:aws:lambda:eu-west-1:ACCOUNT_ID:function:can2025-notification-handler
+# Créer la configuration Function URL
+aws lambda create-function-url-config \
+  --function-name can2025-event-processor \
+  --auth-type NONE \
+  --cors '{
+    "AllowOrigins": ["*"],
+    "AllowMethods": ["POST"],
+    "AllowHeaders": ["Content-Type"]
+  }'
+
+# Ajouter la permission pour invocation publique
+aws lambda add-permission \
+  --function-name can2025-event-processor \
+  --statement-id FunctionURLAllowPublicAccess \
+  --action lambda:InvokeFunctionUrl \
+  --principal "*" \
+  --function-url-auth-type NONE
+```
+
+### 5.5 Obtenir l'URL de la Function
+
+```bash
+aws lambda get-function-url-config \
+  --function-name can2025-event-processor \
+  --query 'FunctionUrl' \
+  --output text
+```
+
+**Exemple de sortie :**
+```
+https://abc123xyz.lambda-url.eu-west-1.on.aws/
+```
+
+> ⚠️ **Important** : Utilisez cette URL dans la configuration du backend (`LAMBDA_FUNCTION_URL`)
+
+### 5.6 Tester la Lambda
+
+```bash
+# Envoyer un événement de test
+curl -X POST "https://abc123xyz.lambda-url.eu-west-1.on.aws/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "goal.scored",
+    "matchId": "M123",
+    "minute": 63,
+    "score": {"A": 2, "B": 1},
+    "recipients": ["+212612345678"]
+  }'
 ```
 
 ---
 
 ## 6. Déploiement
 
-### 6.1 Déploiement Automatique (CI/CD)
+### 6.1 Ordre de Déploiement
+
+1. **Azure SQL** → Base de données
+2. **GCP notify-service** → Service de notification
+3. **AWS Lambda** → Processeur d'événements (avec URL notify-service)
+4. **GCP Backend** → API (avec URL Lambda)
+5. **GCP Frontend** → Interface utilisateur
+
+### 6.2 Déploiement Automatique (CI/CD)
 
 ```bash
 # Tout push sur main déclenche le déploiement
@@ -335,11 +436,13 @@ git push origin main
 1. GCP Console → Cloud Build → History
 2. Attendre que le build soit vert ✅
 
-### 6.2 URLs de Production
+### 6.3 URLs de Production
 
 Après déploiement, noter les URLs :
 - **Frontend** : `https://can2025-frontend-xxxxx.run.app`
 - **Backend** : `https://can2025-backend-xxxxx.run.app`
+- **Notify Service** : `https://notify-service-xxxxx.run.app`
+- **Lambda Function URL** : `https://xxxxx.lambda-url.eu-west-1.on.aws/`
 
 ---
 
@@ -352,11 +455,10 @@ Après déploiement, noter les URLs :
 | 1 | Push Git | Cloud Build déploie automatiquement |
 | 2 | Ouvrir le frontend | Interface CAN 2025 |
 | 3 | Créer 2 équipes | Maroc, Sénégal |
-| 4 | Inscrire 2 fans | Emails vérifiés SES |
+| 4 | Inscrire 2 fans | Avec numéros de téléphone |
 | 5 | Abonner fans aux équipes | Abonnements créés |
-| 6 | Créer un match | → Email "match.scheduled" |
-| 7 | Ajouter un but | → Email "goal.scored" |
-| 8 | Publier une alerte | → Email "alert.published" |
+| 6 | Créer un match | → Lambda appelée → notify-service log |
+| 7 | Ajouter un but | → SMS "goal.scored" préparé |
 
 ### 7.2 Vérifier les Logs
 
@@ -365,9 +467,38 @@ Après déploiement, noter les URLs :
 gcloud run logs read can2025-backend --region europe-west1
 ```
 
+**Notify Service (GCP) :**
+```bash
+gcloud run logs read notify-service --region europe-west1
+```
+
 **Lambda (AWS) :**
 ```bash
-aws logs tail /aws/lambda/can2025-notification-handler --follow
+aws logs tail /aws/lambda/can2025-event-processor --follow
+```
+
+### 7.3 Exemple de Payload
+
+**Événement envoyé à Lambda :**
+```json
+{
+  "type": "goal.scored",
+  "matchId": "M123",
+  "minute": 63,
+  "score": {"A": 2, "B": 1},
+  "recipients": ["+2126xxxxxxxx", "+33xxxxxxxxx"]
+}
+```
+
+**Payload envoyé au notify-service :**
+```json
+{
+  "channel": "sms",
+  "recipients": ["+2126xxxxxxxx"],
+  "message": "BUT! Maroc 2-1 à 63'.",
+  "eventType": "goal.scored",
+  "timestamp": "2025-01-15T15:30:00Z"
+}
 ```
 
 ---
@@ -385,16 +516,23 @@ PORT=8080
 ```
 
 ### Problème : CORS
-Vérifier que le backend a CORS activé (déjà fait dans le code).
+Vérifier que le backend et Lambda ont CORS activé.
 
-### Problème : Email non reçu
-1. Vérifier que l'email est vérifié dans SES
+### Problème : Lambda pas appelée
+1. Vérifier `LAMBDA_FUNCTION_URL` dans le backend
 2. Vérifier les logs Lambda
-3. En sandbox, tous les destinataires doivent être vérifiés
+3. Tester l'URL avec curl
 
-### Problème : Cloud Build échoue
-1. Vérifier que les APIs sont activées
-2. Vérifier les permissions du service account
+### Problème : notify-service ne répond pas
+1. Vérifier que le service est déployé
+2. Vérifier le token (`X-Notify-Token`)
+3. Vérifier les logs notify-service
+
+### Problème : Token invalide
+```
+Error: Invalid X-Notify-Token
+```
+Vérifier que `GCP_NOTIFY_TOKEN` (Lambda) = `NOTIFY_TOKEN` (notify-service)
 
 ### Problème : Connexion Azure SQL
 ```bash
@@ -410,6 +548,7 @@ sqlcmd -S can2025-server.database.windows.net -U can2025admin -P <password> -d c
 |---------|------------|-----------------|
 | Frontend (Next.js) | 3000 | 3000 |
 | Backend (Node.js) | 8080 | 8080 |
+| Notify Service | 9001 | 8080 |
 | Azure SQL | 1433 | 1433 |
 
 ---
@@ -424,20 +563,25 @@ DB_SERVER=can2025-server.database.windows.net
 DB_NAME=can2025db
 DB_USER=can2025admin
 DB_PASSWORD=***
-AWS_EVENTBRIDGE_ENDPOINT=https://events.eu-west-1.amazonaws.com
-AWS_EVENTBRIDGE_BUS=can2025-events
+LAMBDA_FUNCTION_URL=https://xxxxx.lambda-url.eu-west-1.on.aws/
+```
+
+### Notify Service (`notify-service/.env`)
+```env
+PORT=8080
+NOTIFY_TOKEN=<shared-secret-token>
+LOG_LEVEL=info
+```
+
+### Lambda
+```env
+GCP_NOTIFY_URL=https://notify-service-xxxxx.run.app/notify
+GCP_NOTIFY_TOKEN=<shared-secret-token>
 ```
 
 ### Frontend
 ```env
 NEXT_PUBLIC_API_URL=https://can2025-backend-xxxxx.run.app
-```
-
-### Lambda
-```env
-BACKEND_API_URL=https://can2025-backend-xxxxx.run.app
-SES_FROM_EMAIL=noreply@yourdomain.com
-AWS_REGION=eu-west-1
 ```
 
 ---
@@ -447,10 +591,26 @@ AWS_REGION=eu-west-1
 | Membre | Tâche | Section du Guide |
 |--------|-------|------------------|
 | Membre 1 | GCP Artifact Registry | Section 4.3 |
-| Membre 2 | GCP Cloud Run | Section 4.6 |
-| Membre 3 | Pipeline CI/CD | Section 4.4-4.5 |
+| Membre 2 | GCP Cloud Run (Backend + notify-service) | Section 4.5-4.7 |
+| Membre 3 | Pipeline CI/CD | Section 4.4 |
 | Membre 4 | Azure SQL Database | Section 3 |
-| Membre 5 | AWS Events + Notifications | Section 5 |
+| Membre 5 | AWS Lambda + Function URL | Section 5 |
+
+---
+
+## Diagramme de Flux
+
+```
+┌──────────┐     ┌─────────────┐     ┌───────────────────┐     ┌─────────────────┐
+│  Admin   │────▶│   Backend   │────▶│ Lambda (AWS)      │────▶│ notify-service  │
+│ (Front)  │     │   (GCP)     │     │ Function URL      │     │ (GCP)           │
+└──────────┘     └──────┬──────┘     └───────────────────┘     └─────────────────┘
+                        │                                              │
+                        ▼                                              ▼
+                 ┌─────────────┐                               ┌─────────────────┐
+                 │  Azure SQL  │                               │   Logs / Store  │
+                 └─────────────┘                               └─────────────────┘
+```
 
 ---
 

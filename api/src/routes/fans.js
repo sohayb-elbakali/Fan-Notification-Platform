@@ -11,12 +11,12 @@ const router = express.Router();
 router.get('/', async (req, res, next) => {
     try {
         const result = await query(`
-      SELECT f.id, f.email, f.language, f.created_at,
+      SELECT f.id, f.email, f.phone, f.language, f.created_at,
              STRING_AGG(t.name, ', ') as teams
       FROM fans f
       LEFT JOIN fan_teams ft ON f.id = ft.fan_id
       LEFT JOIN teams t ON ft.team_id = t.id
-      GROUP BY f.id, f.email, f.language, f.created_at
+      GROUP BY f.id, f.email, f.phone, f.language, f.created_at
       ORDER BY f.created_at DESC
     `);
 
@@ -38,7 +38,7 @@ router.get('/:id', async (req, res, next) => {
         const { id } = req.params;
 
         const fanResult = await query(`
-      SELECT id, email, language, created_at
+      SELECT id, email, phone, language, created_at
       FROM fans WHERE id = @id
     `, { id });
 
@@ -68,10 +68,15 @@ router.get('/:id', async (req, res, next) => {
  */
 router.post('/', async (req, res, next) => {
     try {
-        const { email, language = 'fr' } = req.body;
+        const { email, phone, language = 'fr' } = req.body;
 
         if (!email) {
             return res.status(400).json({ error: 'Email is required' });
+        }
+
+        // Validate phone format (optional, but if provided must be valid)
+        if (phone && !/^\+[1-9]\d{6,14}$/.test(phone)) {
+            return res.status(400).json({ error: 'Phone must be in international format (e.g., +212612345678)' });
         }
 
         // Check if email already exists
@@ -89,13 +94,13 @@ router.post('/', async (req, res, next) => {
         const id = uuidv4();
 
         await query(`
-      INSERT INTO fans (id, email, language, created_at)
-      VALUES (@id, @email, @language, GETUTCDATE())
-    `, { id, email, language });
+      INSERT INTO fans (id, email, phone, language, created_at)
+      VALUES (@id, @email, @phone, @language, GETUTCDATE())
+    `, { id, email, phone: phone || null, language });
 
         res.status(201).json({
             message: 'Fan registered successfully',
-            fan: { id, email, language }
+            fan: { id, email, phone, language }
         });
     } catch (error) {
         next(error);

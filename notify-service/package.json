@@ -1,0 +1,17 @@
+{
+  "name": "can2025-notify-service",
+  "version": "1.0.0",
+  "description": "CAN 2025 Notification Service for SMS/Email",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
