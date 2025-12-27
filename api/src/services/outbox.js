@@ -67,16 +67,17 @@ async function getMatchRecipients(matchId) {
 
         const match = matchResult.recordset[0];
 
-        // Get phone numbers from fans subscribed to either team
+        // Get emails from fans subscribed to either team
         const fansResult = await query(`
             SELECT DISTINCT f.id, f.email, f.phone, f.language
             FROM fans f
             INNER JOIN fan_teams ft ON f.id = ft.fan_id
             WHERE ft.team_id IN (@teamA, @teamB)
-            AND f.phone IS NOT NULL
+            AND (f.email IS NOT NULL OR f.phone IS NOT NULL)
         `, { teamA: match.team_a_id, teamB: match.team_b_id });
 
-        return fansResult.recordset.map(f => f.phone).filter(Boolean);
+        // Return emails first, then phone numbers as fallback
+        return fansResult.recordset.map(f => f.email || f.phone).filter(Boolean);
     } catch (error) {
         console.error('Error fetching match recipients:', error.message);
         return [];
@@ -101,20 +102,21 @@ async function getAlertRecipients(alertId) {
         let fansResult;
 
         if (alert.scope_type === 'ALL') {
-            fansResult = await query(`SELECT id, phone FROM fans WHERE phone IS NOT NULL`);
+            fansResult = await query(`SELECT id, email, phone FROM fans WHERE email IS NOT NULL OR phone IS NOT NULL`);
         } else if (alert.scope_type === 'CITY') {
             fansResult = await query(`
-                SELECT DISTINCT f.id, f.phone
+                SELECT DISTINCT f.id, f.email, f.phone
                 FROM fans f
                 INNER JOIN fan_teams ft ON f.id = ft.fan_id
                 INNER JOIN matches m ON (ft.team_id = m.team_a_id OR ft.team_id = m.team_b_id)
-                WHERE m.city = @city AND f.phone IS NOT NULL
+                WHERE m.city = @city AND (f.email IS NOT NULL OR f.phone IS NOT NULL)
             `, { city: alert.scope_id });
         } else {
             return [];
         }
 
-        return fansResult.recordset.map(f => f.phone).filter(Boolean);
+        // Return emails first, then phone numbers as fallback
+        return fansResult.recordset.map(f => f.email || f.phone).filter(Boolean);
     } catch (error) {
         console.error('Error fetching alert recipients:', error.message);
         return [];
