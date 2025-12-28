@@ -249,7 +249,7 @@ docker push europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest
 ```bash
 gcloud run deploy can2025-notify-service \
   --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/notify-service:latest \
-  --region europe-west1 \
+  --region europe-west9 \
   --platform managed \
   --allow-unauthenticated \
   --port 8080 \
@@ -271,7 +271,7 @@ echo -n "https://xxxxx.lambda-url.eu-west-3.on.aws/" | gcloud secrets versions a
 ```bash
 gcloud run deploy can2025-backend \
   --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/backend:latest \
-  --region europe-west1 \
+  --region europe-west9 \
   --platform managed \
   --allow-unauthenticated \
   --port 8080 \
@@ -293,7 +293,7 @@ echo -n "https://can2025-backend-xxxxx.run.app" | gcloud secrets versions add ba
 ```bash
 gcloud run deploy can2025-frontend \
   --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest \
-  --region europe-west1 \
+  --region europe-west9 \
   --platform managed \
   --allow-unauthenticated \
   --port 3000 \
