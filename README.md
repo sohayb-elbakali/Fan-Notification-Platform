@@ -101,7 +101,7 @@ Fan-Notification-Platform/
 | **Frontend** | https://can2025-frontend-uzunknaokq-od.a.run.app | europe-west9 |
 | **Backend API** | https://can2025-backend-uzunknaokq-od.a.run.app | europe-west9 |
 | **Notify Service** | https://can2025-notify-service-uzunknaokq-od.a.run.app | europe-west9 |
-| **Lambda** | https://7ozywadaoghlhuxuam73gdjtn40toskw.lambda-url.eu-west-3.on.aws/ | eu-west-3 |
+| **Lambda** | https://w3pjkvmagxqldupm2mrmembdiy0pynzg.lambda-url.eu-west-3.on.aws/ | eu-west-3 |
 
 ---
 

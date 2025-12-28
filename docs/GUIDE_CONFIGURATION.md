@@ -249,7 +249,7 @@ docker push europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest
 ```bash
 gcloud run deploy can2025-notify-service \
   --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/notify-service:latest \
-  --region europe-west1 \
+  --region europe-west9 \
   --platform managed \
   --allow-unauthenticated \
   --port 8080 \
@@ -271,7 +271,7 @@ echo -n "https://xxxxx.lambda-url.eu-west-3.on.aws/" | gcloud secrets versions a
 ```bash
 gcloud run deploy can2025-backend \
   --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/backend:latest \
-  --region europe-west1 \
+  --region europe-west9 \
   --platform managed \
   --allow-unauthenticated \
   --port 8080 \
@@ -293,7 +293,7 @@ echo -n "https://can2025-backend-xxxxx.run.app" | gcloud secrets versions add ba
 ```bash
 gcloud run deploy can2025-frontend \
   --image europe-west1-docker.pkg.dev/$PROJECT_ID/can2025/frontend:latest \
-  --region europe-west1 \
+  --region europe-west9 \
   --platform managed \
   --allow-unauthenticated \
   --port 3000 \
@@ -309,7 +309,7 @@ gcloud run deploy can2025-frontend \
 | **Frontend** | https://can2025-frontend-uzunknaokq-od.a.run.app |
 | **Backend** | https://can2025-backend-uzunknaokq-od.a.run.app |
 | **Notify Service** | https://can2025-notify-service-uzunknaokq-od.a.run.app |
-| **Lambda** | https://7ozywadaoghlhuxuam73gdjtn40toskw.lambda-url.eu-west-3.on.aws/ |
+| **Lambda** | https://w3pjkvmagxqldupm2mrmembdiy0pynzg.lambda-url.eu-west-3.on.aws/ |
 
 ---
 
@@ -407,7 +407,7 @@ Tous les fans abonnés à l'équipe A ou B recevront un email!
 | azure-db-name | can2025db | Backend |
 | azure-db-user | can2025admin | Backend |
 | azure-db-password | *** | Backend |
-| lambda-function-url | https://xxx.lambda-url.eu-west-3.on.aws/ | Backend |
+| lambda-function-url | https://w3pjkvmagxqldupm2mrmembdiy0pynzg.lambda-url.eu-west-3.on.aws/ | Backend |
 | notify-token | shared-token | notify-service, Lambda |
 | smtp-host | smtp.gmail.com | notify-service |
 | smtp-port | 587 | notify-service |
