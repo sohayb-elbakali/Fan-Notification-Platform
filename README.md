@@ -98,10 +98,12 @@ Fan-Notification-Platform/
 
 | Service | URL | Région |
 |---------|-----|--------|
-| **Frontend** | https://can2025-frontend-xxxxx.a.run.app | europe-west9 |
-| **Backend API** | https://can2025-backend-xxxxx.a.run.app | europe-west9 |
-| **Notify Service** | https://can2025-notify-service-xxxxx.a.run.app | europe-west9 |
-| **Lambda** | https://xxxxx.lambda-url.eu-west-3.on.aws/ | eu-west-3 |
+| **Frontend** | `https://can2025-frontend-xxxxx.a.run.app` | europe-west9 |
+| **Backend API** | `https://can2025-backend-xxxxx.a.run.app` | europe-west9 |
+| **Notify Service** | `https://can2025-notify-service-xxxxx.a.run.app` | europe-west9 |
+| **Lambda** | `https://xxxxx.lambda-url.eu-west-3.on.aws/` | eu-west-3 |
+
+> ⚠️ **Note**: Les URLs réelles sont stockées dans GCP Secret Manager pour des raisons de sécurité.
 
 ---
 
@@ -204,6 +206,8 @@ curl https://can2025-backend-xxxxx.a.run.app/teams
 # Lister les matchs
 curl https://can2025-backend-xxxxx.a.run.app/matches
 ```
+
+> 💡 Remplacez `xxxxx` par l'identifiant de votre déploiement Cloud Run.
 
 ---
 

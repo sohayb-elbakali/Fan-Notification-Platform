@@ -306,10 +306,12 @@ gcloud run deploy can2025-frontend \
 
 | Service | URL |
 |---------|-----|
-| **Frontend** | https://can2025-frontend-xxxxx.a.run.app |
-| **Backend** | https://can2025-backend-xxxxx.a.run.app |
-| **Notify Service** | https://can2025-notify-service-xxxxx.a.run.app |
-| **Lambda** | https://xxxxx.lambda-url.eu-west-3.on.aws/ |
+| **Frontend** | `https://can2025-frontend-xxxxx.a.run.app` |
+| **Backend** | `https://can2025-backend-xxxxx.a.run.app` |
+| **Notify Service** | `https://can2025-notify-service-xxxxx.a.run.app` |
+| **Lambda** | `https://xxxxx.lambda-url.eu-west-3.on.aws/` |
+
+> ⚠️ **Note**: Remplacez `xxxxx` par vos identifiants de déploiement. Les URLs réelles sont stockées dans GCP Secret Manager.
 
 ---
 
@@ -327,7 +329,7 @@ curl https://can2025-notify-service-xxxxx.a.run.app/health
   "status": "healthy",
   "service": "CAN 2025 Notify Service",
   "emailConfigured": true,
-  "timestamp": "2025-12-27T22:48:30.917Z"
+  "timestamp": "..."
 }
 ```
 
@@ -403,16 +405,16 @@ Tous les fans abonnés à l'équipe A ou B recevront un email!
 
 | Secret | Valeur | Utilisé par |
 |--------|--------|-------------|
-| azure-db-server | xxx.database.windows.net | Backend |
-| azure-db-name | can2025db | Backend |
-| azure-db-user | can2025admin | Backend |
-| azure-db-password | *** | Backend |
-| lambda-function-url | https://xxxxx.lambda-url.eu-west-3.on.aws/ | Backend |
-| notify-token | shared-token | notify-service, Lambda |
-| smtp-host | smtp.gmail.com | notify-service |
-| smtp-port | 587 | notify-service |
-| smtp-user | email@gmail.com | notify-service |
-| smtp-pass | app-password | notify-service |
+| azure-db-server | `xxx.database.windows.net` | Backend |
+| azure-db-name | `can2025db` | Backend |
+| azure-db-user | `can2025admin` | Backend |
+| azure-db-password | `***` | Backend |
+| lambda-function-url | `https://xxxxx.lambda-url.eu-west-3.on.aws/` | Backend |
+| notify-token | `***` | notify-service, Lambda |
+| smtp-host | `smtp.gmail.com` | notify-service |
+| smtp-port | `587` | notify-service |
+| smtp-user | `***` | notify-service |
+| smtp-pass | `***` | notify-service |
 
 ---
 
