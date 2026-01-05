@@ -24,6 +24,12 @@ La **CAN 2025 Fan Notification Platform** est une solution cloud-native permetta
 
 ## 🏗️ Architecture Multi-Cloud
 
+<p align="center">
+  <img src="docs/diagram-can.svg" alt="Architecture Multi-Cloud CAN 2025" width="100%">
+</p>
+
+### Schéma Simplifié
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         ARCHITECTURE MULTI-CLOUD                         │
@@ -139,6 +145,14 @@ Fan-Notification-Platform/
 
 ## 🔔 Flux de Notification
 
+### Diagramme de Séquence Détaillé
+
+<p align="center">
+  <img src="docs/diagram-seq.svg" alt="Diagramme de Séquence - Flux de Notification" width="100%">
+</p>
+
+### Résumé du Flux
+
 ```
 1. Création Match/Alert/Goal via Backend API
                     │
@@ -189,8 +203,12 @@ Fan-Notification-Platform/
 
 ## 📖 Documentation
 
-Pour la configuration détaillée et le guide de déploiement, consultez:
-- [📘 Guide de Configuration](docs/GUIDE_CONFIGURATION.md)
+Pour plus de détails sur l'architecture et le déploiement, consultez :
+
+| Document | Description |
+|----------|-------------|
+| [📘 Guide de Configuration](docs/GUIDE_CONFIGURATION.md) | Instructions complètes pour le déploiement manuel sur GCP, AWS et Azure |
+| [🏗️ Architecture et Séquence](docs/ARCHITECTURE_ET_SEQUENCE.md) | Détails des composants, flux de données et logique de ciblage des notifications |
 
 ---
 
